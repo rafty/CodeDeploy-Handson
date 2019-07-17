@@ -74,8 +74,8 @@ $ rm *.zip
 DeploymentGroupの作成  
 -> s3://for-codedeploy-test/20190718-0900.zip  
 
-- ロールバックしてみる！ 
-
+# ロールバックしてみる！ 
+- 再実行  
 
 
 # CodeDeployの問題点
@@ -86,3 +86,6 @@ DeploymentGroupの作成
 
 問題はBlueGreenデプロイメントになってないこと
 
+
+# CloudFormationで削除
+-> ドリフトを体験
