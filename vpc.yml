@@ -1,0 +1,355 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  sample vpc
+Parameters:
+  ProjectName:
+    Type: String
+    Default: ec
+  RoleName:
+    Type: String
+    Default: websvr
+  Environment:
+    Type: String
+    Default: dev
+  VPCCidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnet1a:
+    Type: String
+    Default: 10.0.11.0/24
+  PublicSubnet1c:
+    Type: String
+    Default: 10.0.12.0/24
+  AZ1a:
+    Type: String
+    Default: ap-northeast-1a
+  AZ1c:
+    Type: String
+    Default: ap-northeast-1c
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance.
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+    Default: keypair
+  OperatorEMail:
+    Description: EMail address to notify if there are any scaling operations
+    Type: String
+    AllowedPattern: >-
+      ([a-zA-Z0-9_\-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)
+    ConstraintDescription: must be a valid email address.
+    Default: yagita.taksahi@gmail.com
+  S3BucketName:
+    Description: bucket for CodeBuild build image
+    Type: String
+    Default: for-codedeploy-test
+
+Resources:
+  # -----------------------------------------
+  # VPC
+  # -----------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-vpc
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-igw
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-public-rtb
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Ref AZ1a
+      CidrBlock: !Ref PublicSubnet1a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-public-sbn1
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Ref AZ1c
+      CidrBlock: !Ref PublicSubnet1c
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${Environment}-public-sbn2
+  PublicSubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # -----------------------------------------
+  # Web Server SecurityGroup
+  # -----------------------------------------
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-sg
+      GroupDescription: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-sg
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-sg
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref PublicAlbSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHLocation
+
+  # -----------------------------------------
+  # Public Load Balancer SecurityGroup
+  # -----------------------------------------
+  PublicAlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-${RoleName}-${Environment}-public-alb-sg
+      GroupDescription: !Sub ${ProjectName}-${RoleName}-${Environment}-public-alb-sg
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-${RoleName}-${Environment}-public-alb-sg
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+
+  # -----------------------------
+  # CodeDeploy用Role
+  # -----------------------------
+  CodeDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-${Environment}-codedeploy-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - codedeploy.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole
+      Path: /
+
+  CodeDeployPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-${Environment}-codedeploy-policy
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Resource:
+              - '*'
+            Action:
+              - ec2:Describe*
+          - Effect: Allow
+            Resource:
+              - '*'
+            Action:
+              - autoscaling:*
+      Roles:
+        - !Ref CodeDeployRole
+
+  # -----------------------------------------
+  # Web Server Instance用 Role
+  # -----------------------------------------
+  WebServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+
+  WebServerPolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-policy
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ec2:*'
+              - 'codedeploy:*'
+              - 'autoscaling:Describe*'
+              - 'cloudformation:Describe*'
+              - 'cloudformation:GetTemplate'
+              - 's3:Get*'
+              - 's3:List*'
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+              - 'logs:DescribeLogStreams'
+            Resource: '*'
+      Roles:
+        - !Ref WebServerRole
+
+  WebServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-profile
+      Path: /
+      Roles:
+        - !Ref WebServerRole
+
+  # -----------------------------------------
+  # SNS
+  # -----------------------------------------
+  AsgNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub ${ProjectName}-${RoleName}-${Environment}-asg-topic
+      TopicName: !Sub ${ProjectName}-${RoleName}-${Environment}-asg-topic
+      Subscription:
+        - Endpoint: !Ref OperatorEMail
+          Protocol: email
+
+  # -----------------------------------------
+  # S3 Bucket for Build Image
+  # -----------------------------------------
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${S3BucketName}
+#      AccessControl: Private
+#      PublicAccessBlockConfiguration:
+#        BlockPublicAcls: True
+#        BlockPublicPolicy: True
+#        IgnorePublicAcls: True
+#        RestrictPublicBuckets: True
+
+  # -----------------------------------------
+  # SSM Parameters
+  # -----------------------------------------
+  DbProfile:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: !Sub ${ProjectName}-${RoleName}-${Environment}-DbProfile
+      Type: String
+      Description: dev environment profile for database
+      Value:
+        Fn::Base64: !Sub |
+          {
+              "Parameter": {
+                  "Name": "plaintext-password",
+                  "Type": "String",
+                  "Value": "jugemujugemugokounosurikire",
+                  "Version": 1
+              }
+          }
+
+  # -----------------------------------------
+  # CodeDeploy Application
+  # -----------------------------------------
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Sub ${ProjectName}-${Environment}-codedeploy-app
+      ComputePlatform: Server
+
+# -----------------------------------------
+# Output
+# -----------------------------------------
+Outputs:
+  VPC:
+    Description: CodeDeployTest
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-vpc
+  PublicSubnet1:
+    Description: CodeDeployTest Public Subnet 1
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-public-sbn1
+  PublicSubnet2:
+    Description: CodeDeployTest Public Subnet 2
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-public-sbn2
+  WebServerSecurityGroup:
+    Description: SG for Webserver
+    Value: !Ref WebServerSecurityGroup
+    Export:
+      Name: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-sg
+  PublicAlbSecurityGroup:
+    Description: SG for ALB
+    Value: !Ref PublicAlbSecurityGroup
+    Export:
+      Name: !Sub ${ProjectName}-${RoleName}-${Environment}-public-alb-sg
+  WebServerInstanceProfile:
+    Description: Instance Profile for Webserver
+    Value: !Ref WebServerInstanceProfile
+    Export:
+      Name: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-profile
+  CodeDeployRole:
+    Description: Role For CodeDeploy
+    Value: !Ref CodeDeployRole
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-codedeploy-role
+  AsgNotificationTopic:
+    Description: Topic For AutoScaling
+    Value: !Ref AsgNotificationTopic
+    Export:
+      Name: !Sub ${ProjectName}-${RoleName}-${Environment}-asg-topic
