@@ -34,8 +34,6 @@ Parameters:
   BuildAMI:
     Description: build java image for CodeDeploy blue green test
     Type: String
-    #Default: ami-0e8efddfd41f146b2
-    #Default: ami-0a70a8da555c825b3
     Default: ami-0ee3055d91280485d
 
 Resources:

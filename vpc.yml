@@ -273,12 +273,6 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${S3BucketName}
-#      AccessControl: Private
-#      PublicAccessBlockConfiguration:
-#        BlockPublicAcls: True
-#        BlockPublicPolicy: True
-#        IgnorePublicAcls: True
-#        RestrictPublicBuckets: True
 
   # -----------------------------------------
   # SSM Parameters
