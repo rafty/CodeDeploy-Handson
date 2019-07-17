@@ -55,14 +55,11 @@ $ aws s3 cp $NOW.zip s3://for-codedeploy-test/$NOW.zip
 $ rm *.zip
 ```
 
-
-
 # 説明
 - GoldenAMIを持ってきてる  
   ami-0ee3055d91280485dをPublic公開してるので参照できるはず(ap-northeaset-1のみ)  
 - BuildImage(Java)を持ってきてる  
 - vpc.ymlでSSM Parameterを作成してる  
-
 - CodeDeploy Agentの説明
 - appspec.ymlの説明  
 - userdataとの関係
@@ -76,6 +73,14 @@ DeploymentGroupの作成
 
 # ロールバックしてみる！ 
 - 再実行  
+
+# 講義
+#### 環境変数の話
+- TagとSSM 
+
+#### ステージングの話
+- Buildは1回
+- 12 factor
 
 
 # CodeDeployの問題点
