@@ -1,40 +1,68 @@
 # CodeDeploy Blue Green Deployment
 
 # 1. Preparation
-BuildBucket nameを決める 　
-e.g. yagita-for-codedeploy  
+BuildImageBucketの名前nameを決める  
+e.g. yagita-for-codedeploy-ap-northeast-1
 
-Templateを修正する  
-vpc.yml -> Parameters -> S3BucketName -> Default (yagita-for-codedeploy)  
+yagitaの部分を自分の名前に変更する
+```bash
+$ MYNAME=yagita
+$ aws cloudformation create-stack \
+--stack-name codedeploy-preparation \
+--region ap-northeast-1 \
+--template-body file://preparation.yml \
+--capabilities CAPABILITY_NAMED_IAM \
+--parameters \
+ParameterKey=S3BucketPrefix,ParameterValue=$MYNAME
+```
 
-# 1. VPC & Network 構築
+output: yagita-for-codedeploy-ap-northeast-1  
+
+
+# 2. VPC & Network 構築
 
 ```bash
+$ MYMAIL=yagita.takashi@gmail.com
+
 $ aws cloudformation create-stack \
 --stack-name codedeploy-vpc \
 --region ap-northeast-1 \
 --template-body file://vpc.yml \
---capabilities CAPABILITY_NAMED_IAM
+--capabilities CAPABILITY_NAMED_IAM \
+--parameters \
+ParameterKey=OperatorEMail,ParameterValue=$MYMAIL
+
 
 $ aws cloudformation update-stack \
 --stack-name codedeploy-vpc \
 --region ap-northeast-1 \
 --template-body file://vpc.yml \
---capabilities CAPABILITY_NAMED_IAM
+--capabilities CAPABILITY_NAMED_IAM \
+--parameters \
+ParameterKey=OperatorEMail,ParameterValue=$MYMAIL
+
 
 $ aws cloudformation delete-stack \
 --stack-name codedeploy-vpc \
 --region ap-northeast-1
 ```
 
-# 2. Resources for blue-green
+# 3. Resources for blue-green
 
 ```bash
+$ PROJECTNAME=ec
+$ ROLENAME=websvr
+$ ENV=dev
+
 $ aws cloudformation create-stack \
 --stack-name codedeploy-bg \
 --region ap-northeast-1 \
 --template-body file://blue-green.yml \
---capabilities CAPABILITY_NAMED_IAM
+--capabilities CAPABILITY_NAMED_IAM \
+--parameters \
+ParameterKey=ProjectName,ParameterValue=$PROJECTNAME \
+ParameterKey=RoleName,ParameterValue=$ROLENAME \
+ParameterKey=Environment,ParameterValue=$ENV
 
 $ aws cloudformation delete-stack \
 --stack-name codedeploy-bg \
@@ -42,45 +70,48 @@ $ aws cloudformation delete-stack \
 
 ```
 
-ここでWevServerにアクセスしてみる！  
-SSM Sessionsでアクセスしてみる！  
-
-1. Upload Build Image to S3 Bucket
+# 4. Upload Build Image to S3 Bucket
 
 ```bash
 $ cd BuildImage
 $ NOW=20190718-0900
 $ zip -r $NOW.zip ./*
-$ aws s3 cp $NOW.zip s3://for-codedeploy-test/$NOW.zip
+$ aws s3 cp $NOW.zip s3://$MYNAME-for-codedeploy-ap-northeast-1/$NOW.zip
 $ rm *.zip
 ```
+
+# 4. 動作確認
+
+ここでWevServerにアクセスしてみる！ -> 502 Bad Gateway
+SSM Sessionsでアクセスしてみる！  
+
 
 # 説明
 - GoldenAMIを持ってきてる  
   ami-0ee3055d91280485dをPublic公開してるので参照できるはず(ap-northeaset-1のみ)  
-- BuildImage(Java)を持ってきてる  
+- BuildImage(Java) ->  BuildImage/target/SampleMavenTomcatApp.war 
 - vpc.ymlでSSM Parameterを作成してる  
-- CodeDeploy Agentの説明
-- appspec.ymlの説明  
+- CodeDeploy Agentとappspec.ymlの説明  
 - userdataとの関係
 
+# 10. CodeDeployアプリケーションの作成
+name: ec
 
-# CodeDeploy の作成
-- Application -> (*)DeploymentGroup  
+# 11. CodeDeployデプロイグループの作成
+デプロイグループ名: Webservers
 
-DeploymentGroupの作成  
+# 12. CodeDeployデプロイグループの実行
+[デプロイの作成]ボタン
 -> s3://for-codedeploy-test/20190718-0900.zip  
+-> s3://yagita-for-codedeploy-ap-northeast-1/20190718-0900.zip
 
-# ロールバックしてみる！ 
+
+# 13. ロールバックしてみる！ 
 - 再実行  
 
-# 講義
+# 説明
 #### 環境変数の話
-- TagとSSM 
-
-#### ステージングの話
-- Buildは1回
-- 12 factor
+- Tag&SSM&userdata 
 
 
 # CodeDeployの問題点
@@ -89,8 +120,5 @@ DeploymentGroupの作成
 1. GoldenImageが変えられない
 1. Pipelineに加えるには厳しい。運用設計をしっかり行うこと。
 
-問題はBlueGreenデプロイメントになってないこと
-
-
-# CloudFormationで削除
+# 14. CloudFormationで削除
 -> ドリフトを体験

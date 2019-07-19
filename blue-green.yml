@@ -19,11 +19,11 @@ Parameters:
     Default: 0.0.0.0/0
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
-  KeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance.
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.
-    Default: keypair
+#  KeyName:
+#    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance.
+#    Type: AWS::EC2::KeyPair::KeyName
+#    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+#    Default: keypair
   InstanceCount:
     Description: Number of Amazon EC2 instances (Must be a number between 1 and 3).
     Type: Number
@@ -102,7 +102,7 @@ Resources:
       ImageId: !Ref BuildAMI
       InstanceMonitoring: false
       InstanceType: t2.micro
-      KeyName: !Ref KeyName
+      # KeyName: !Ref KeyName
       LaunchConfigurationName: !Sub ${ProjectName}-${RoleName}-${Environment}-lcfg
       SecurityGroups:
         - Fn::ImportValue: !Sub ${ProjectName}-${RoleName}-${Environment}-wsrv-sg

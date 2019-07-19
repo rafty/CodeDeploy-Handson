@@ -34,11 +34,11 @@ Parameters:
     Default: 0.0.0.0/0
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
-  KeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance.
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.
-    Default: keypair
+#  KeyName:
+#    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance.
+#    Type: AWS::EC2::KeyPair::KeyName
+#    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+#    Default: keypair
   OperatorEMail:
     Description: EMail address to notify if there are any scaling operations
     Type: String
@@ -46,10 +46,10 @@ Parameters:
       ([a-zA-Z0-9_\-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)
     ConstraintDescription: must be a valid email address.
     Default: yagita.taksahi@gmail.com
-  S3BucketName:
-    Description: bucket for CodeBuild build image
-    Type: String
-    Default: for-codedeploy-test
+#  S3BucketName:
+#    Description: bucket for CodeBuild build image
+#    Type: String
+#    Default: for-codedeploy-test
 
 Resources:
   # -----------------------------------------
@@ -266,13 +266,13 @@ Resources:
         - Endpoint: !Ref OperatorEMail
           Protocol: email
 
-  # -----------------------------------------
-  # S3 Bucket for Build Image
-  # -----------------------------------------
-  S3Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub ${S3BucketName}
+#  # -----------------------------------------
+#  # S3 Bucket for Build Image
+#  # -----------------------------------------
+#  S3Bucket:
+#    Type: AWS::S3::Bucket
+#    Properties:
+#      BucketName: !Sub ${S3BucketName}
 
   # -----------------------------------------
   # SSM Parameters
