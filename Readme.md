@@ -98,6 +98,7 @@ SSM Sessionsでアクセスしてみる！
 - CodeDeploy Agentとappspec.ymlの説明  
 - userdataとの関係
 
+7/19
 13:29
 
 # 10. CodeDeployアプリケーションの作成
@@ -106,6 +107,7 @@ name: ec
 # 11. CodeDeployデプロイグループの作成
 デプロイグループ名: Webservers
 
+7/19
 13:30
 
 # 12. CodeDeployデプロイグループの実行
@@ -113,6 +115,8 @@ name: ec
 -> s3://for-codedeploy-test/20190718-0900.zip  
 -> s3://yagita-for-codedeploy-ap-northeast-1/20190718-0900.zip
 
+
+7/19
 13:39
 
 # 13. ロールバックしてみる！ 
